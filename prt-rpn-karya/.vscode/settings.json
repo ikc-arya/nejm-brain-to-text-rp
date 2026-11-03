@@ -1,0 +1,12 @@
+{
+  // Make the prt-rpn-karya uv envs show up in the interpreter / notebook kernel lists.
+  // Default discovery only looks for folders named `.venv`.
+  "python-envs.workspaceSearchPaths": [
+    ".venv",
+    "*/.venv",
+    "prt-rpn-karya/.venv-train",
+    ".venv-train"
+  ],
+  "python.venvPath": "/Users/cmoonk/Projects/nejm-brain-to-text-rp/prt-rpn-karya",
+  "python.defaultInterpreterPath": "/Users/cmoonk/Projects/nejm-brain-to-text-rp/prt-rpn-karya/.venv-train/bin/python"
+}

@@ -1,0 +1,8 @@
+.venv/
+.venv-train/
+__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store
+experiments/*/
+data_cache/

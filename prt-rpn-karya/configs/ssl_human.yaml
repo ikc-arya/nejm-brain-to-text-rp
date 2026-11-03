@@ -1,0 +1,55 @@
+# Stage 1: causal AR SSL of the SpikeGPT backbone, human B2T only. Mac-scale (MPS, ~0.5 s/step).
+# Full scale: configs/ssl_human_gpu.yaml
+data_root: ${oc.env:DATA_ROOT,../data}   # parent of hdf5_data_final/ and allen/; CLI: data_root=/path
+b2t_sessions: all        # B2T sessions to use: all, or a list, e.g. b2t_sessions=[t15.2023.08.13,t15.2023.08.18]
+model:
+  n_embd: 384            # backbone width (pipeline diagram: w_in 512->384, ctc_head 384->41)
+  n_layer: 6
+  backbone_dropout: 0.03 # upstream SpikeGPT Block dropout
+  patch_size: 14         # bins per token, same frame rate as the GRU baseline (80 ms stride)
+  patch_stride: 4
+  ar_horizon: 4          # predict the 4 bins (80 ms) right after each token's patch
+  input_dropout: 0.2
+  binary_input: true     # ATan spike on the stem output (SpikeGPT's binary embedding)
+  n_phonemes: 41
+
+sources:               # any number of sources; each batch comes from one source, picked by weight
+  - type: b2t
+    weight: 1.0
+    dataset_dir: ${data_root}/hdf5_data_final
+    sessions: ${b2t_sessions}
+    batch_size: 64
+    days_per_batch: 4
+    num_workers: 4
+    seed: 1
+    data_transforms:     # applied to the model input only; the AR target is the raw features
+      white_noise_std: 0.5
+      constant_offset_std: 0.2
+      smooth: causal     # never 'acausal' for the AR objective (leaks the target)
+      smooth_kernel_std: 2
+      smooth_kernel_size: 100
+
+max_bins: 512            # random 10 s crop per trial (SSL does not need whole sentences)
+val_max_batches: 12      # evenly spaced subset of the val batches
+
+device: auto             # cuda > mps > cpu
+use_native_kernels: true # CUDA WKV kernel / Metal WKV + LIF kernels; false = pure PyTorch loops
+pad_time_multiple: 128   # bucket sequence lengths (MPS compiles a graph per shape)
+grad_checkpoint: true     # recompute blocks in backward: fits B=64 full trials in unified memory
+use_amp: true            # bf16 on CUDA only
+seed: 10
+output_dir: experiments/ssl_human
+checkpoint_dir: experiments/ssl_human/checkpoint
+
+num_training_batches: 3000
+lr_max: 0.0006           # upstream SpikeGPT lr_init
+lr_min: 0.00001
+lr_warmup_steps: 300
+lr_decay_steps: 3000
+beta0: 0.9
+beta1: 0.99
+epsilon: 1.0e-08
+weight_decay: 0.01
+grad_norm_clip_value: 1.0
+batches_per_train_log: 50
+batches_per_val_step: 500
